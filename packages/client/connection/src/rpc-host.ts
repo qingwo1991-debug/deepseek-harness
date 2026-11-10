@@ -83,11 +83,13 @@ export class HostConnectionService extends Service implements HostConnectionHand
    * @param ctx - owning Connection plugin context.
    * @param trustedHosts - deployment authorities accepted by the Host/Origin fence.
    * @param browserAuth - process token and persistent browser-session owner.
+   * @param disableBrowserAuth - trust the Host/Origin fence without the browser exchange.
    */
   constructor(
     ctx: Context,
     private readonly trustedHosts: readonly string[],
     private readonly browserAuth: BrowserAuth,
+    private readonly disableBrowserAuth: boolean = false,
   ) {
     super(ctx, 'connection')
     this.owner = ctx
@@ -129,6 +131,9 @@ export class HostConnectionService extends Service implements HostConnectionHand
   admit(request: ConnectionTrustRequest): PeerAdmission {
     if (!this.isTrusted(request)) return { rejection: 403 }
     if (this.disposed) return { rejection: 401 }
+    // A front-door-authenticated deployment trusts the fence above and skips
+    // the launch-token/cookie exchange entirely.
+    if (this.disableBrowserAuth) return { peer: this.browserPeer }
     const secure = this.owner.get('webServer')?.protocol === 'https:'
     if (this.browserAuth.isAuthenticated(request, secure)) return { peer: this.browserPeer }
     const id = this.browserAuth.authenticateApi(request, secure)
@@ -191,6 +196,9 @@ export class HostConnectionService extends Service implements HostConnectionHand
    * Authenticate an index request; native TLS listeners mint Secure cookies.
    */
   authorizeIndex(request: ConnectionIndexRequest, response: ConnectionIndexResponse): boolean {
+    // The launch-token/cookie exchange is skipped when the deployment's own
+    // front door authenticates; the content served is the same index.
+    if (this.disableBrowserAuth) return true
     return this.browserAuth.authorizeIndex(request, response, this.ctx.get('webServer')?.protocol === 'https:')
   }
 

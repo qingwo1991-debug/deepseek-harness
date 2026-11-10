@@ -653,7 +653,14 @@ describe('endpoint interrogation', () => {
     await waitFor(() => { expect(mutate).toHaveBeenCalled() })
     expect(firstMutate(mutate).ops[0]?.value).toEqual([
       { id: 'kept', contextWindow: 111 },
-      { id: 'fresh', contextWindow: 4096, maxTokens: 2048, name: 'Fresh', input: ['text', 'image'] },
+      {
+        id: 'fresh',
+        contextWindow: 4096,
+        maxTokens: 2048,
+        name: 'Fresh',
+        input: ['text', 'image'],
+        reasoningEfforts: { low: 'low', medium: 'medium', high: 'high', xhigh: 'xhigh', max: 'max' },
+      },
     ])
   })
 
@@ -848,8 +855,12 @@ describe('endpoint interrogation', () => {
     fireEvent.click(screen.getByText(en.apply))
 
     await waitFor(() => { expect(mutate).toHaveBeenCalled() })
-    // A disclosed output cap rides along with the candidate that has one.
-    expect(firstMutate(mutate).ops[0]?.value).toEqual([{ id: 'a' }, { id: 'b', maxTokens: 2048 }])
+    // Disclosed caps ride along, and adoption fills the default
+    // reasoning-effort map for every newly added model.
+    expect(firstMutate(mutate).ops[0]?.value).toEqual([
+      { id: 'a', reasoningEfforts: { low: 'low', medium: 'medium', high: 'high', xhigh: 'xhigh', max: 'max' } },
+      { id: 'b', maxTokens: 2048, reasoningEfforts: { low: 'low', medium: 'medium', high: 'high', xhigh: 'xhigh', max: 'max' } },
+    ])
   })
 
   it('filters by model id or name and selects or deselects only visible candidates', async () => {

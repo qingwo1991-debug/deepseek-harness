@@ -953,3 +953,17 @@ select.input {
   line-height: 20px;
   text-align: center;
 }
+
+/* Narrow screens: the provider head wraps instead of squeezing the name, and
+   the advanced fields stack so nothing shrinks below a touch-friendly target.
+   The model row itself already collapses through its own container query. */
+@media (max-width: 680px) {
+  .rowHead {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .modelAdvanced {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,60 @@
+name: Fork build
+
+# Builds this fork's local patches on a standard GitHub-hosted runner.
+# Upstream CI targets enterprise/self-hosted runners that forks cannot use.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - local-0.2.2-rc.1
+
+permissions:
+  contents: read
+
+env:
+  DSH_TELEMETRY_DISABLED: '1'
+  CI: 'true'
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck, build, and aggregate checks
+        run: pnpm run build
+
+      - name: Patched behavior tests
+        run: >-
+          pnpm exec vitest run
+          packages/llm/llm-deepseek/tests/stream.spec.ts
+          packages/llm/llm-deepseek/tests/runtime.spec.ts
+          packages/llm/llm-deepseek/tests/adapter.spec.ts
+          packages/client/connection/tests/node-half.host.spec.ts
+          packages/client/connection/tests/client-apply.client.spec.ts
+          packages/client/ui-settings-models/tests/provider-form.client.spec.tsx
+
+      - name: Pack built outputs
+        run: >-
+          tar -czf dsh-0.2.2-rc.1-local.tar.gz
+          apps/web/dist
+          apps/cli/lib
+          packages/*/*/lib
+          native/system
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dsh-build-${{ github.sha }}
+          path: dsh-0.2.2-rc.1-local.tar.gz
+          retention-days: 7

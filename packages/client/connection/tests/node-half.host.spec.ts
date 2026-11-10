@@ -281,6 +281,8 @@ describe('connection node half', () => {
           backoffBaseMs: 500, backoffFactor: 2, backoffMaxMs: 10_000,
           generationReadyWarnMs: 3_000, generationReadyTimeoutMs: 25_000,
         },
+      }, {
+        kind: 'global', name: '__DSH_TRUSTED_HOSTS__', value: [],
       }])
       await dispose()
       const after: IndexInjection[] = []
@@ -609,6 +611,21 @@ describe('connection node half', () => {
     await Promise.all([connection.browserPeer.dispose(), connection.browserPeer.dispose()])
     await remove()
     await dispose()
+  })
+
+  it('trusts the fence without the browser exchange when browser auth is disabled', async () => {
+    const { connection, routes, dispose } = await mounted({ disableBrowserAuth: true })
+    try {
+      expect(connection.admit(fakeRequest({ host: 'other.example' }))).toEqual({ rejection: 403 })
+      expect(connection.admit(fakeRequest({ host: '127.0.0.1:3080' }))).toEqual({ peer: connection.browserPeer })
+      const index = fakeResponse()
+      expect(connection.authorizeIndex(fakeRequest({ host: '127.0.0.1:3080' }, '/'), index.response)).toBe(true)
+      expect(index.state.headers?.['set-cookie']).toBeUndefined()
+      const route = routes.find(candidate => candidate.path === API_PATH)!
+      const bridged = fakeResponse()
+      await route.handler(fakeRequest({ host: '127.0.0.1:3080' }), bridged.response)
+      expect(bridged.state.status).toBe(404)
+    } finally { await dispose() }
   })
 
   it('applies the configured trust fence and JSON envelope checks to generic channels', async () => {

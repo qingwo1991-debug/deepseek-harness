@@ -321,3 +321,23 @@
   max-height: min(calc(100vh - 24px), var(--dsh-anchored-max-height, 100vh));
   max-height: min(calc(100dvh - 24px), var(--dsh-anchored-max-height, 100vh));
 }
+
+/* Narrow screens: keep the dropdown on-device — full-bleed width, taller than
+   the 24px-margin default so a phone-height menu scrolls instead of being
+   clipped, and touch momentum on the scrolling rows. `100vh`/`100dvh`
+   fallback used by {@link Modal} for the same reason. */
+@media (max-width: 680px) {
+  .list {
+    width: calc(100vw - 24px);
+    max-width: calc(100vw - 24px);
+  }
+
+  .scrollable {
+    max-height: 60vh;
+  }
+
+  .scrollable .viewport {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+}

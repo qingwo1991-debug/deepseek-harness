@@ -105,6 +105,12 @@ export interface ConnectionConfig {
   trustedHosts?: string[]
   /** Absolute browser and API cookie lifetime in days. Default: 30. */
   cookieMaxAgeDays?: number
+  /**
+   * Serve the page and `/api` without the launch-token/cookie exchange,
+   * relying on the Host/Origin fence alone. Intended for a deployment whose
+   * front door (reverse proxy, tunnel) authenticates requests. Default: false.
+   */
+  disableBrowserAuth?: boolean
   /** Maximum buffered JSON body for every `/api` request. Default: 300 MiB. */
   maxRequestBodyBytes?: number
 }
@@ -113,6 +119,7 @@ export const Config: z<ConnectionConfig> = z.object({
   recovery: ConnectionRecoveryConfigSchema.default({}),
   trustedHosts: z.array(String).default([]),
   cookieMaxAgeDays: z.natural().min(1).default(30),
+  disableBrowserAuth: z.boolean().default(false),
   maxRequestBodyBytes: z.natural().min(1).default(DEFAULT_MAX_REQUEST_BODY_BYTES),
 })
 
@@ -137,11 +144,16 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
     ctx,
     trustedHosts,
     await BrowserAuth.create(ctx.root, ctx.credentials, cookieMaxAgeDays),
+    config?.disableBrowserAuth ?? false,
   )
   ctx.inject(['webServer'], (webCtx) => {
     assertImageBodyCapacity(webCtx, maxRequestBodyBytes)
     webCtx.on('webserver/index-inject', (table) => {
       table.push({ kind: 'global', name: '__DSH_CONNECTION_RECOVERY__', value: recovery })
+      // The client treats a page whose host is a declared trusted host as
+      // operator-owned (loopback-equivalent) so LAN deployments get writable
+      // settings and the full model directory instead of the memory-only view.
+      table.push({ kind: 'global', name: '__DSH_TRUSTED_HOSTS__', value: trustedHosts })
     })
     const fetchHandler = connection.createSharedFetchHandler(API_PATH)
     const route: WebRoute = {

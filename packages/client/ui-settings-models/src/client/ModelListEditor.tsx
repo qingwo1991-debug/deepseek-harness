@@ -135,6 +135,21 @@ function capacitySpelling(value: number | undefined): string {
   return value === undefined ? '' : formatCapacity(value)
 }
 
+/**
+ * Reasoning-effort levels adopted for a discovered model that discloses none.
+ * Discovery (`GET /models`) never reports thinking-level capability, so
+ * without this a newly adopted model arrives reasoning:false and cannot express
+ * a thinking depth in sessions. `off` is omitted: it means "no level sent",
+ * which is already the model default.
+ */
+const ADOPTED_REASONING_EFFORTS: Record<string, string> = {
+  low: 'low',
+  medium: 'medium',
+  high: 'high',
+  xhigh: 'xhigh',
+  max: 'max',
+}
+
 /** Adopt a candidate, preserving disclosed capacities and input types. */
 function adopt(candidate: LlmDiscoveredModel): ModelDraft {
   return {
@@ -143,6 +158,7 @@ function adopt(candidate: LlmDiscoveredModel): ModelDraft {
     ...candidate.contextWindow === undefined ? {} : { contextWindow: candidate.contextWindow },
     ...candidate.maxTokens === undefined ? {} : { maxTokens: candidate.maxTokens },
     ...candidate.inputModalities === undefined ? {} : { input: [...candidate.inputModalities] },
+    reasoningEfforts: ADOPTED_REASONING_EFFORTS,
   }
 }
 

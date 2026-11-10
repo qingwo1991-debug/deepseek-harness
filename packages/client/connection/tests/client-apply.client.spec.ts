@@ -17,11 +17,13 @@ import {
 type Win = {
   location?: { hostname: string; origin?: string }
   __DSH_TRANSPORT__?: ClientTransportHooks
+  __DSH_TRUSTED_HOSTS__?: readonly string[]
 }
 
 afterEach(() => {
   delete (globalThis as Win).location
   delete (globalThis as Win).__DSH_TRANSPORT__
+  delete (globalThis as Win).__DSH_TRUSTED_HOSTS__
   vi.unstubAllGlobals()
   vi.useRealTimers()
 })
@@ -131,6 +133,18 @@ describe('connection client apply', () => {
 
   it('reports non-loopback page authority through the connection handle', async () => {
     ;(globalThis as Win).location = { hostname: '192.0.2.20' }
+    expect((await mount()).isLoopback).toBe(false)
+  })
+
+  it('treats a host declared in the trusted-host table as loopback-equivalent', async () => {
+    ;(globalThis as Win).location = { hostname: '192.0.2.20' }
+    ;(globalThis as Win).__DSH_TRUSTED_HOSTS__ = ['127.0.0.1:3080', '192.0.2.20:8443']
+    expect((await mount()).isLoopback).toBe(true)
+  })
+
+  it('ignores trusted-host entries for other authorities', async () => {
+    ;(globalThis as Win).location = { hostname: '192.0.2.20' }
+    ;(globalThis as Win).__DSH_TRUSTED_HOSTS__ = ['127.0.0.1:3080', '192.0.2.21:8443']
     expect((await mount()).isLoopback).toBe(false)
   })
 

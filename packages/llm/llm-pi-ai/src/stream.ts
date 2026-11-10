@@ -40,7 +40,17 @@ export function mapUsage(usage: PiUsage): TokenUsage {
 // If pi-ai ever forwards the original Error (or a fetch/dispatcher hook that lets
 // us capture the cause ourselves), classify on `code`/`cause` instead of text.
 function classifyPiAiError(message: string): string {
-  if (/\b(?:401|403)\b/.test(message)) return 'AUTH'
+  if (/\b401\b/.test(message)) return 'AUTH'
+  if (/\b403\b/.test(message)) {
+    // A bare 403 in the text is often an UPSTREAM gateway block (WAF page,
+    // per-IP rate window) rather than a rejected credential. Only treat it as
+    // AUTH when the text actually describes a credential problem.
+    if (/authentication|unauthorized|credential|api[_-]?key|apikey|access[_-]?token/i.test(message)
+      && /invalid|incorrect|not ?valid|rejected|denied|expired|revoked|failed|missing|insufficient|bad/i.test(message)) {
+      return 'AUTH'
+    }
+    return 'SERVER'
+  }
   if (isQuotaExceededError(message)) return QUOTA_EXCEEDED_CODE
   if (/\b429\b|rate.?limit/i.test(message)) return 'RATE_LIMIT'
   // A rejected request body (gateway or provider size cap): resending the

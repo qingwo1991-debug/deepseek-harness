@@ -120,7 +120,7 @@ describe('SSE framing and provider failures', () => {
     await expect(read(sse([{ type: 'error', error: { type: 'overloaded_error', message: 'busy' } }]))).rejects.toMatchObject({ code: 'SERVER' })
   })
   it.each([
-    [401, {}, 'AUTH'], [403, {}, 'AUTH'], [402, {}, 'QUOTA'], [429, {}, 'RATE_LIMIT'],
+    [401, {}, 'AUTH'], [403, {}, 'SERVER'], [402, {}, 'QUOTA'], [429, {}, 'RATE_LIMIT'],
     [400, {}, 'INVALID_REQUEST'], [413, {}, 'INVALID_REQUEST'], [503, {}, 'SERVER'], [404, {}, 'HTTP_404'],
     [undefined, { type: 'authentication_error' }, 'AUTH'], [undefined, { type: 'rate_limit_error' }, 'RATE_LIMIT'],
     [undefined, { type: 'invalid_request_error' }, 'INVALID_REQUEST'], [undefined, {}, 'SERVER'],
@@ -128,6 +128,16 @@ describe('SSE framing and provider failures', () => {
     [400, { message: 'insufficient balance' }, 'QUOTA'],
   ])('classifies status %s and error %j', (status, error, code) => {
     expect(providerError({ error }, status)).toMatchObject({ code })
+  })
+  it('distinguishes a credential-rejected 403 from an upstream block', () => {
+    // A gateway can surface an upstream block (WAF page, per-IP rate window)
+    // as a plain 403; that must not read as a rejected key.
+    expect(providerError({ error: { message: 'upstream 403: WAF Block Page' } }, 403)).toMatchObject({ code: 'SERVER' })
+    expect(providerError({ error: { code: 'permission_denied' } }, 403)).toMatchObject({ code: 'SERVER' })
+    // A body that unambiguously rejects the credential still maps to AUTH.
+    expect(providerError({ error: { type: 'authentication_error', message: 'Invalid API key' } }, 403)).toMatchObject({ code: 'AUTH' })
+    expect(providerError({ error: { message: 'Invalid authentication credentials' } }, 403)).toMatchObject({ code: 'AUTH' })
+    expect(providerError({ error: { message: 'Unauthorized: API key invalid' } }, 403)).toMatchObject({ code: 'AUTH' })
   })
   it('retains request identity and valid Retry-After without inventing missing counters', () => {
     expect(providerError(null, 429, new Headers({ 'retry-after': '2', 'request-id': 'r1' })).failure).toMatchObject({ requestId: 'r1', providerRetryAfterMs: 2000 })

@@ -26,7 +26,17 @@ export function providerError(raw: unknown, status: number | undefined, headers?
   const type = typeof error.type === 'string' ? error.type : ''
   const detail = `${type} ${typeof error.code === 'string' ? error.code : ''} ${message}`
   let code: string
-  if (status === 401 || status === 403 || ['authentication_error', 'permission_error'].includes(type)) code = 'AUTH'
+  if (status === 401) code = 'AUTH'
+  else if (status === 403) {
+    // A 403 from an upstream gateway is usually an UPSTREAM rejection (WAF
+    // block, per-IP rate window, upstream transient), not a bad key. Only
+    // classify it as AUTH when the body unambiguously means the credential
+    // was rejected.
+    if (/authentication|unauthorized|credential|access[_-]?token|api[_-]?key|apikey/i.test(detail)
+      && /invalid|incorrect|not ?valid|rejected|denied|expired|revoked|failed|missing|insufficient|bad/i.test(detail)) code = 'AUTH'
+    else code = 'SERVER'
+  }
+  else if (['authentication_error', 'permission_error'].includes(type)) code = 'AUTH'
   else if (isQuotaExceededError(detail) || status === 402) code = 'QUOTA'
   else if (status === 429 || type === 'rate_limit_error') code = 'RATE_LIMIT'
   else if (isContextWindowExceededError(detail)) code = 'CONTEXT_WINDOW_EXCEEDED'

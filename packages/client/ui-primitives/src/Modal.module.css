@@ -129,3 +129,31 @@
   gap: 8px;
   padding: 0 24px;
 }
+
+/* Narrow screens: the dialog grows from the viewport bottom edge instead of
+   floating centered, and the whole card is a flex column so `.content`
+   scrolls while the footer stays pinned. `100vh` first then `100dvh` covers
+   browsers without the dynamic unit; without a height limit a fixed-position
+   dialog taller than the viewport clips its body with no way to reach it
+   (the fetch-dialog candidate list was exactly that on phones). */
+@media (max-width: 680px) {
+  .root {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .dialog {
+    width: 100%;
+    max-height: 100vh;
+    max-height: 100dvh;
+    border-radius: 20px 20px 0 0;
+  }
+
+  .content {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+}

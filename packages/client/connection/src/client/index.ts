@@ -123,6 +123,8 @@ export interface ClientTransportHooks {
 interface ClientTransportGlobal {
   __DSH_TRANSPORT__?: ClientTransportHooks
   __DSH_CONNECTION_RECOVERY__?: unknown
+  /** Host-declared authorities treated as loopback-equivalent (LAN operator deployments). */
+  __DSH_TRUSTED_HOSTS__?: readonly string[]
 }
 
 /** Browser location fields used to classify loopback authority. */
@@ -271,7 +273,8 @@ export function installConnection(ctx: Context, options: ConnectionInstallOption
   const handle: ConnectionHandle = {
     interactions,
     openWebSocket: path => openConnectionWebSocket(path, transport?.createWebSocket, transport?.streamBaseUrl),
-    isLoopback: transport?.ownsHost === true || pageLocation === undefined || isLoopbackHostname(pageLocation.hostname),
+    isLoopback: transport?.ownsHost === true || pageLocation === undefined || isLoopbackHostname(pageLocation.hostname)
+      || (globalThis as ClientTransportGlobal).__DSH_TRUSTED_HOSTS__?.some(entry => entry.split(':')[0] === pageLocation.hostname) === true,
     generation: {
       getSnapshot: () => generation,
       subscribe: (listener) => {
